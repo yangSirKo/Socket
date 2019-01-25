@@ -98,7 +98,7 @@ public class ClientHandler {
                     String str = socketInput.readLine();
                     if (str == null) {
                         // 服务器端接收客户端连接，产生的客户端
-                        System.out.println("客户端已无法读取数据");
+                        System.out.println("客户端退出，无法再读取数据");
                         // 退出当前客户端
                         ClientHandler.this.exitBySelf();
                         break;
