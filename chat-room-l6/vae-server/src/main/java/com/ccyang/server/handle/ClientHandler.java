@@ -23,14 +23,20 @@ public class ClientHandler {
     private final Socket socket;
     private final ClientReadHandler readHandler;
     private final ClientWriteHandler writeHandler;
-    private final CloseNotify closeNotify;
+    private final ClientHandlerCallback clientHandlerCallback;
+    private final String clientInfo;
 
-    public ClientHandler(Socket socket, CloseNotify closeNotify) throws IOException {
+    public ClientHandler(Socket socket, ClientHandlerCallback clientHandlerCallback) throws IOException {
         this.socket = socket;
         this.readHandler = new ClientReadHandler(socket.getInputStream());
         this.writeHandler = new ClientWriteHandler(socket.getOutputStream());
-        this.closeNotify = closeNotify;
-        System.out.println("建立客户端连接：" + socket.getInetAddress() + ", P:" + socket.getPort());
+        this.clientHandlerCallback = clientHandlerCallback;
+        this.clientInfo = "A[" + socket.getInetAddress() + "], P[" + socket.getPort() + "]";
+        System.out.println("建立客户端连接：" + clientInfo);
+    }
+
+    public String getClientInfo() {
+        return clientInfo;
     }
 
     /**
@@ -40,7 +46,7 @@ public class ClientHandler {
         readHandler.exit();
         writeHandler.exit();
         CloseUtils.close(socket);
-        System.out.println("客户端退出 " + socket.getInetAddress() + ", P:" + socket.getPort() );
+        System.out.println("客户端 " + socket.getInetAddress() + ", P:" + socket.getPort() + "退出");
     }
 
     /**
@@ -62,15 +68,23 @@ public class ClientHandler {
      */
     private void exitBySelf() {
         exit();
-        // 告诉外部的closeNotify。自己将自己关闭了
-        closeNotify.onSelfClosed(this);
+        // 告诉外部的 clientHandlerCallback。自己将自己关闭了
+        clientHandlerCallback.onSelfClosed(this);
     }
 
     /**
      * 回调接口。 当客户端自己退出时，需要告诉外部自己退出了，然后从ClientHandlerList中移除自己
      */
-    public interface CloseNotify {
+    public interface ClientHandlerCallback {
+        /**
+         * 自身关闭通知
+         */
         void onSelfClosed(ClientHandler handler);
+
+        /**
+         * 收到消息时通知
+         */
+        void onNewMessageArrived(ClientHandler handler, String msg);
     }
 
     /**
@@ -98,13 +112,13 @@ public class ClientHandler {
                     String str = socketInput.readLine();
                     if (str == null) {
                         // 服务器端接收客户端连接，产生的客户端
-                        System.out.println("客户端退出，无法再读取数据");
+                        System.out.println("与" + getClientInfo() + " 的连接关闭，无法继续读取数据");
                         // 退出当前客户端
                         ClientHandler.this.exitBySelf();
                         break;
                     }
                     // 打印到屏幕
-                    System.out.println(str);
+                    clientHandlerCallback.onNewMessageArrived(ClientHandler.this, str);
 
                 } while (!done);
             } catch (IOException e) {
@@ -144,9 +158,11 @@ public class ClientHandler {
             executorService.shutdownNow();
         }
 
-        public void send(String str) {
+        void send(String str) {
+            if (done){
+                return;
+            }
             executorService.execute(new WriteRunnable(str));
-
         }
 
         class WriteRunnable implements Runnable {

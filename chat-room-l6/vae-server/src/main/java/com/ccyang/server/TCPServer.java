@@ -5,6 +5,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import com.ccyang.server.handle.ClientHandler;
 
@@ -13,7 +16,7 @@ import com.ccyang.server.handle.ClientHandler;
  * @date: 2019-01-22
  * @description:
  */
-public class TCPServer {
+public class TCPServer implements ClientHandler.ClientHandlerCallback {
 
     // 监听的端口号
     private final int port;
@@ -22,9 +25,11 @@ public class TCPServer {
      * 保存连接成功的客户端
      */
     private List<ClientHandler> clientHandlerList = new ArrayList<>();
+    private ExecutorService forwardingThreadPoolExecutor = null;
 
     public TCPServer(int port) {
         this.port = port;
+        forwardingThreadPoolExecutor = Executors.newSingleThreadExecutor();
     }
 
     public boolean start() {
@@ -43,20 +48,47 @@ public class TCPServer {
         if (mListener != null){
             mListener.exit();
         }
-
-        for (ClientHandler clientHandler : clientHandlerList) {
-            clientHandler.exit();
+        synchronized(TCPServer.this) {
+            for (ClientHandler clientHandler : clientHandlerList) {
+                clientHandler.exit();
+            }
+            clientHandlerList.clear();
         }
-        clientHandlerList.clear();
+
+        // 停止线程池
+        forwardingThreadPoolExecutor.shutdownNow();
     }
 
     /**
      * 发送消息
      */
-    public void broadcast(String str) {
+    public synchronized void broadcast(String msg) {
         for (ClientHandler clientHandler : clientHandlerList) {
-            clientHandler.send(str);
+            clientHandler.send(msg);
         }
+    }
+
+    @Override
+    public synchronized void onSelfClosed(ClientHandler handler) {
+        clientHandlerList.remove(handler);
+    }
+
+    @Override
+    public void onNewMessageArrived(ClientHandler handler, String msg) {
+        System.out.println("收到了 - " + handler.getClientInfo() +" : " + msg);
+        String resendMsg = handler.getClientInfo() +": " + msg;
+                forwardingThreadPoolExecutor.execute( () -> {
+            synchronized(TCPServer.this) {
+                for (ClientHandler clientHandler : clientHandlerList) {
+                    if (clientHandler.equals(handler)){
+                        // 跳过自己
+                        continue;
+                    }
+                    // 对其它客户端发送消息
+                    clientHandler.send(resendMsg);
+                }
+            }
+        });
     }
 
     /**
@@ -86,11 +118,13 @@ public class TCPServer {
                 }
                 // 客户端构建异步线程
                 try {
-                    ClientHandler clientHandler = new ClientHandler(client,
-                            handler -> clientHandlerList.remove(handler));
+                    ClientHandler clientHandler = new ClientHandler(client, TCPServer.this);
                     // 读取数据并打印
                     clientHandler.readToPrint();
-                    clientHandlerList.add(clientHandler);
+                    // 添加同步
+                    synchronized(TCPServer.this) {
+                        clientHandlerList.add(clientHandler);
+                    }
                 } catch (IOException e) {
                     System.out.println("客户端连接异常 " + e.getMessage());
                 }
