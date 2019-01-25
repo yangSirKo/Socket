@@ -31,7 +31,7 @@ public class Server {
             str = bufferedReader.readLine();
             String msg = "server say: " + str;
             // 发送消息
-            tcpServer.broadcast(msg);git
+            tcpServer.broadcast(msg);
         } while (!"00bye00".equalsIgnoreCase(str));
 
         UDPProvider.stop();
