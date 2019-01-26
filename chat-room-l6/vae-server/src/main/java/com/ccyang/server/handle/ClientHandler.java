@@ -24,6 +24,9 @@ public class ClientHandler {
     private final ClientReadHandler readHandler;
     private final ClientWriteHandler writeHandler;
     private final ClientHandlerCallback clientHandlerCallback;
+    /**
+     * 存放客户端信息
+     */
     private final String clientInfo;
 
     public ClientHandler(Socket socket, ClientHandlerCallback clientHandlerCallback) throws IOException {

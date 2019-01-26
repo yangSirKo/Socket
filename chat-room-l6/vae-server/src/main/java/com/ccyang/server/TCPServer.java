@@ -32,6 +32,9 @@ public class TCPServer implements ClientHandler.ClientHandlerCallback {
         forwardingThreadPoolExecutor = Executors.newSingleThreadExecutor();
     }
 
+    /**
+     * 启动服务端
+     */
     public boolean start() {
         try {
             ClientListener listener = new ClientListener(port);
@@ -44,6 +47,9 @@ public class TCPServer implements ClientHandler.ClientHandlerCallback {
         return true;
     }
 
+    /**
+     * 关闭服务端
+     */
     public void stop(){
         if (mListener != null){
             mListener.exit();
@@ -68,11 +74,18 @@ public class TCPServer implements ClientHandler.ClientHandlerCallback {
         }
     }
 
+    /**
+     * 客户端退出后，需要在连接的集合中删除
+     * @param handler
+     */
     @Override
     public synchronized void onSelfClosed(ClientHandler handler) {
         clientHandlerList.remove(handler);
     }
 
+    /**
+     * 服务端收到消息，进行转发
+     */
     @Override
     public void onNewMessageArrived(ClientHandler handler, String msg) {
         System.out.println("收到了 - " + handler.getClientInfo() +" : " + msg);
