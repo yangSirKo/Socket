@@ -44,37 +44,34 @@ public class ClientTest {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-
-            // 接收键盘输入，进行发送数据
-            System.in.read();
-            Thread thread = new Thread(() -> {
-                while (true) {
-                    for (TCPClient client : tcpClients) {
-                        client.send("hello~");
-                    }
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            });
-            thread.start();
-
-            // 接收键盘输入，退出程序
-            System.in.read();
-            done = true;
-            // 等待线程执行完成
-            try {
-                thread.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            for (TCPClient client : tcpClients) {
-                client.exit();
-            }
-
         }
+        // 接收键盘输入，进行发送数据
+        System.in.read();
+        Thread thread = new Thread(() -> {
+            while (true) {
+                for (TCPClient client : tcpClients) {
+                    client.send("hello~");
+                }
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+        thread.start();
 
+        // 接收键盘输入，退出程序
+        System.in.read();
+        done = true;
+        // 等待线程执行完成
+        try {
+            thread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        for (TCPClient client : tcpClients) {
+            client.exit();
+        }
     }
 }
